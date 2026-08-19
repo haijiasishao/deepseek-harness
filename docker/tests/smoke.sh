@@ -122,6 +122,9 @@ wait_for_internal_code() {
     if [[ "$(container_http_code "$url")" == "$expected" ]]; then
       return 0
     fi
+    if [[ "$(docker inspect --format '{{.State.Running}}' "$container" 2>/dev/null || true)" != 'true' ]]; then
+      fail "container exited while waiting for internal HTTP ${expected} from ${url}"
+    fi
     sleep 1
   done
   fail "timed out waiting for internal HTTP ${expected} from ${url}"

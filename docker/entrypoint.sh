@@ -87,7 +87,7 @@ fi
 chmod 0600 "$AUTH_FILE"
 unset password
 
-if ! nginx -t -q -c "$NGINX_CONFIG" >/dev/null 2>&1; then
+if ! nginx -t -c "$NGINX_CONFIG"; then
   log 'nginx configuration validation failed'
   exit 1
 fi
