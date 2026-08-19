@@ -110,6 +110,9 @@ require(nginx, r"proxy_pass http://harness;", "the proxy must target the Harness
 require(nginx, r"proxy_set_header Host 127\.0\.0\.1:3080;", "the authenticated proxy must normalize the upstream Host for the Harness trust fence")
 require(nginx, r"proxy_set_header Origin \"\";", "the authenticated proxy must remove the external Origin before the loopback trust fence")
 require(nginx, r"proxy_set_header Authorization \"\";", "Basic credentials must not be forwarded into the Harness")
+for temp_name in ("client-body", "proxy", "fastcgi", "uwsgi", "scgi"):
+    require(nginx, rf"/tmp/dsh-nginx-{temp_name}", f"nginx {temp_name} temporary files must use a non-root writable path")
+    require(dockerfile, rf"/tmp/dsh-nginx-{temp_name}", f"the image must create the nginx {temp_name} temporary path")
 forbid(nginx, r"^\s*listen\s+[^;]*\b3080\b", "nginx must not listen on the Harness port", re.MULTILINE)
 
 require(smoke, r"^set -Eeuo pipefail$", "the smoke test must use strict shell error handling", re.MULTILINE)

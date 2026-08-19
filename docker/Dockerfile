@@ -49,6 +49,9 @@ RUN install -d -o dsh -g dsh -m 0700 \
         /workspace \
         /tmp/dsh-nginx-client-body \
         /tmp/dsh-nginx-proxy \
+        /tmp/dsh-nginx-fastcgi \
+        /tmp/dsh-nginx-uwsgi \
+        /tmp/dsh-nginx-scgi \
     && chmod 0555 /usr/local/bin/dsh-entrypoint
 
 ENV HOME=/home/dsh \
