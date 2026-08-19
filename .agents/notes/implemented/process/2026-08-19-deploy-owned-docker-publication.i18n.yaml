@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-08-19-deploy-owned-docker-publication.md
-2026-08-19-deploy-owned-docker-publication.md: bd22d593fb8b2954de7277cf00d968d961bc548e
-2026-08-19-deploy-owned-docker-publication.zh.md: 5424b5f71c387520fff7cc478a5064d227553ecb
+2026-08-19-deploy-owned-docker-publication.md: 4bf3ea78e7b1e992acd2e619bd4130814cda3df6
+2026-08-19-deploy-owned-docker-publication.zh.md: dad1f373d711d022ebb15bf7647416ea86637668
