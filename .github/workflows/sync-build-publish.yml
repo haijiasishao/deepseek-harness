@@ -1,0 +1,164 @@
+name: Sync, build, and publish Docker
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: deepseek-harness-docker-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    if: github.ref_name == 'deploy'
+    name: Fast-forward official master mirror
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      master_sha: ${{ steps.sync.outputs.master_sha }}
+      master_short_sha: ${{ steps.sync.outputs.master_short_sha }}
+    steps:
+      - name: Check out master
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Add official upstream
+        run: git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
+
+      - name: Fetch official master
+        run: git fetch --no-tags upstream master
+
+      - name: Reject divergence and push a fast-forward only
+        id: sync
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          origin_master=$(git rev-parse refs/remotes/origin/master)
+          upstream_master=$(git rev-parse refs/remotes/upstream/master)
+          if ! git merge-base --is-ancestor "$origin_master" "$upstream_master"; then
+            printf '%s\n' 'origin/master is not an ancestor of upstream/master; refusing to overwrite fork history.' >&2
+            exit 1
+          fi
+
+          # No force option is permitted: a concurrent origin/master update must
+          # make this push fail instead of overwriting the newer branch.
+          git push origin "refs/remotes/upstream/master:refs/heads/master"
+
+          printf 'master_sha=%s\n' "$upstream_master" >> "$GITHUB_OUTPUT"
+          printf 'master_short_sha=%s\n' "${upstream_master:0:7}" >> "$GITHUB_OUTPUT"
+
+  build-and-smoke:
+    if: github.ref_name == 'deploy'
+    name: Build and smoke-test linux/amd64
+    needs: sync
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      MASTER_SHA: ${{ needs.sync.outputs.master_sha }}
+      DEPLOY_SHA: ${{ github.sha }}
+    steps:
+      - name: Check out the synchronized master commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.sync.outputs.master_sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Overlay Docker files from deploy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$MASTER_SHA"
+          git fetch --no-tags origin deploy
+          test "$(git rev-parse refs/remotes/origin/deploy)" = "$DEPLOY_SHA"
+          git checkout origin/deploy -- docker
+          test "$(git rev-parse HEAD)" = "$MASTER_SHA"
+
+      - name: Validate Docker files
+        run: python3 docker/tests/validate.py
+
+      - name: Check shell syntax
+        run: bash -n docker/entrypoint.sh docker/tests/smoke.sh docker/tests/validate.sh
+
+      - name: Verify the GitHub-hosted Docker daemon
+        run: docker info
+
+      - name: Run the real linux/amd64 smoke test
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: bash docker/tests/smoke.sh
+
+  publish:
+    if: github.ref_name == 'deploy'
+    name: Publish multi-architecture image
+    needs: [sync, build-and-smoke]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      MASTER_SHA: ${{ needs.sync.outputs.master_sha }}
+      DEPLOY_SHA: ${{ github.sha }}
+    steps:
+      - name: Check out the synchronized master commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.sync.outputs.master_sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Overlay Docker files from deploy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$MASTER_SHA"
+          git fetch --no-tags origin deploy
+          test "$(git rev-parse refs/remotes/origin/deploy)" = "$DEPLOY_SHA"
+          git checkout origin/deploy -- docker
+          test "$(git rev-parse HEAD)" = "$MASTER_SHA"
+
+      - name: Validate Docker files before publication
+        run: python3 docker/tests/validate.py
+
+      - name: Check shell syntax before publication
+        run: bash -n docker/entrypoint.sh docker/tests/smoke.sh docker/tests/validate.sh
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/deepseek-harness:latest
+            ghcr.io/${{ github.repository_owner }}/deepseek-harness:master-${{ needs.sync.outputs.master_short_sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.sync.outputs.master_sha }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha,scope=deepseek-harness-docker
+          cache-to: type=gha,mode=max,scope=deepseek-harness-docker
