@@ -34,6 +34,7 @@ def forbid(text: str, pattern: str, description: str, flags: int = 0) -> None:
 
 
 dockerfile = read("docker/Dockerfile")
+patch = read("docker/patches/insecure-origin-rpc.patch")
 entrypoint = read("docker/entrypoint.sh")
 nginx = read("docker/nginx.conf")
 smoke = read("docker/tests/smoke.sh")
@@ -47,6 +48,39 @@ require(dockerfile, r"corepack prepare pnpm@11\.7\.0 --activate", "Corepack must
 require(dockerfile, r'test "\$\(pnpm --version\)" = "11\.7\.0"', "the image must verify the pnpm version")
 require(dockerfile, r"pnpm install --frozen-lockfile", "the build must use the lockfile immutably")
 require(dockerfile, r"pnpm run build", "the official source must be built")
+for command, description in (
+    ("git apply --check docker/patches/insecure-origin-rpc.patch", "the source patch must be checked before applying"),
+    ("git apply docker/patches/insecure-origin-rpc.patch", "the source patch must be applied in the build stage"),
+    ("rm docker/patches/insecure-origin-rpc.patch", "the source patch must be removed before the runtime copy"),
+):
+    require(dockerfile, re.escape(command), description)
+command_positions = [
+    dockerfile.index(command)
+    for command in (
+        "COPY . .",
+        "git apply --check docker/patches/insecure-origin-rpc.patch",
+        "git apply docker/patches/insecure-origin-rpc.patch",
+        "rm docker/patches/insecure-origin-rpc.patch",
+        "pnpm install --frozen-lockfile",
+        "pnpm run build",
+    )
+]
+if command_positions != sorted(command_positions):
+    fail("the source patch must be checked, applied, and removed before install and build")
+patch_files = re.findall(r"^diff --git a/(\S+) b/\S+$", patch, re.MULTILINE)
+if patch_files != [
+    "packages/host/apiproxy/src/fetch/client.ts",
+    "packages/host/apiproxy/src/fetch/random-uuid.ts",
+]:
+    fail("the source patch must contain only the two production fetch files")
+patch_added_lines = "\n".join(
+    line[1:]
+    for line in patch.splitlines()
+    if line.startswith("+") and not line.startswith("+++")
+)
+require(patch_added_lines, r"\brandomUuid\b", "the source patch must use randomUuid")
+require(patch_added_lines, r"\bgetRandomValues\b", "the source patch must use getRandomValues")
+forbid(patch_added_lines, r"crypto\.randomUUID", "the source patch must not add crypto.randomUUID")
 for package in ("nginx", "tini", "curl", "apache2-utils", "bash", "ca-certificates", "procps"):
     require(dockerfile, rf"\b{re.escape(package)}\b", f"{package} must be installed in the image")
 require(dockerfile, r"^WORKDIR /workspace$", "the runtime work directory must be /workspace", re.MULTILINE)

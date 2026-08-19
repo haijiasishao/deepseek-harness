@@ -14,7 +14,7 @@ Docker 部署层需要跟踪官方源码变化，同时不能让由部署方拥�
 
 `deploy` 分支删除了 upstream 的真实 API `e2e.yml` 工作流，因为该工作流同样带有默认分支定时计划，并依赖官方仓库密钥。官方工作流在 `master` 上保持不变；仅从 `deploy` 删除它，可以避免没有密钥的 Fork 夜间任务与 Docker 发布计划同时运行并失败。
 
-构建和发布任务检出同步后的精确 upstream SHA，并且只从 `origin/deploy` 覆盖 `docker/`。Python 校验和 Bash 语法检查在 amd64 Docker 冒烟测试之前运行。发布等待该冒烟测试成功，然后向 GHCR 推送 amd64 与 arm64 镜像，使用 `latest` 和七字符的 `master-<SHA>` 标签、OCI 源码/版本/许可证标签、GitHub Actions 构建缓存以及 `GITHUB_TOKEN` 身份验证。
+构建和发布任务检出同步后的精确 upstream SHA，只从 `origin/deploy` 覆盖 `docker/`，并在安装依赖和构建镜像前应用 Docker 中纳入版本控制的源码补丁。Python 校验和 Bash 语法检查在 amd64 Docker 冒烟测试之前运行。发布等待该冒烟测试成功，然后向 GHCR 推送 amd64 与 arm64 镜像，使用 `latest` 和七字符的 `master-<SHA>` 标签、OCI 源码/版本/许可证标签、GitHub Actions 构建缓存以及 `GITHUB_TOKEN` 身份验证。
 
 Nginx 只允许来自 `127.0.0.1` 和 `::1` 的 `/healthz` 请求，关闭该路径的 Basic Auth，并将请求代理到 Harness。对于已认证的应用流量，Nginx 将上游 Host 规范化为环回地址，移除外部 Origin 以保持反向代理后的 Harness 环回信任围栏一致，并在请求进入 Harness 前剥离已经消费的 Basic `Authorization` 头。冒烟测试同时检查内部健康、外部拒绝以及非环回浏览器 authority 下的 API 访问。入口脚本使用固定的 90 秒就绪截止时间。
 

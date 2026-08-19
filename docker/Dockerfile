@@ -18,6 +18,10 @@ RUN corepack enable \
 
 COPY . .
 
+RUN git apply --check docker/patches/insecure-origin-rpc.patch \
+    && git apply docker/patches/insecure-origin-rpc.patch \
+    && rm docker/patches/insecure-origin-rpc.patch
+
 RUN pnpm install --frozen-lockfile
 RUN pnpm run build
 

@@ -20,6 +20,8 @@ docker build --file docker/Dockerfile --tag deepseek-harness:local .
 
 构建使用 Node `22-bookworm-slim`、Corepack、pnpm `11.7.0`、`pnpm install --frozen-lockfile` 和 `pnpm run build`。
 
+部署覆盖层会在镜像构建前应用其纳入版本控制的源码补丁。
+
 ## 运行
 
 在版本控制之外创建环境文件。`WEB_USERNAME` 只能包含字母、数字、`.`、`_` 和 `-`；`WEB_PASSWORD` 至少需要 8 个字符。

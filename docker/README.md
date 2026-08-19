@@ -20,6 +20,8 @@ docker build --file docker/Dockerfile --tag deepseek-harness:local .
 
 The build uses Node `22-bookworm-slim`, Corepack with pnpm `11.7.0`, `pnpm install --frozen-lockfile`, and `pnpm run build`.
 
+The deployment overlay applies its checked-in source patch before the image build.
+
 ## Run
 
 Create an environment file outside version control. `WEB_USERNAME` may contain only letters, digits, `.`, `_`, and `-`; `WEB_PASSWORD` must contain at least 8 characters.
