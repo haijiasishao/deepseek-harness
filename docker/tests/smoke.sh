@@ -78,9 +78,15 @@ if [[ "$ports" == *3080* ]]; then
   fail 'the container published the private Harness port 3080'
 fi
 
-host_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$container")"
-[[ -n "$host_port" ]] || fail 'Docker did not publish the nginx port'
-base_url="http://127.0.0.1:${host_port}"
+refresh_base_url() {
+  local host_port
+  host_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$container")"
+  [[ -n "$host_port" ]] || fail 'Docker did not publish the nginx port'
+  base_url="http://127.0.0.1:${host_port}"
+}
+
+base_url=''
+refresh_base_url
 
 http_code() {
   local url="$1"
@@ -162,6 +168,7 @@ expect_not_code 403 "$base_url/api/docker-smoke-nonexistent" \
 
 docker exec "$container" sh -c 'printf %s persistent-workspace > /workspace/.dsh-smoke-marker && printf %s persistent-home > /home/dsh/.dsh-smoke-marker'
 docker restart "$container" >/dev/null
+refresh_base_url
 wait_for_internal_code 200 http://127.0.0.1:8080/healthz
 wait_for_code 403 "$base_url/healthz"
 expect_code 200 "$base_url/" --netrc-file "$netrc"
