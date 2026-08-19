@@ -22,7 +22,7 @@ docker build --file docker/Dockerfile --tag deepseek-harness:local .
 
 ## 运行
 
-在版本控制之外创建环境文件。`WEB_USERNAME` 只能包含字母、数字、`.`、`_` 和 `-`；`WEB_PASSWORD` 至少需要 16 个字符。
+在版本控制之外创建环境文件。`WEB_USERNAME` 只能包含字母、数字、`.`、`_` 和 `-`；`WEB_PASSWORD` 至少需要 8 个字符。
 
 入口脚本会对密码进行哈希，并从子进程环境中删除密码，但 Docker 仍会记录容器的初始环境。拥有 Docker 管理权限的人员可以查看该密码，因此应使用独立凭证并严格限制 Docker 管理权限。
 

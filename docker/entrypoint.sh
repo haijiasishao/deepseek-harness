@@ -64,8 +64,8 @@ if [[ ! $username =~ ^[A-Za-z0-9._-]+$ ]]; then
   exit 64
 fi
 
-if (( ${#password} < 16 )); then
-  log 'WEB_PASSWORD must be at least 16 characters'
+if (( ${#password} < 8 )); then
+  log 'WEB_PASSWORD must be at least 8 characters'
   exit 64
 fi
 

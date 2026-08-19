@@ -43,7 +43,7 @@ chmod 0777 "$home_dir" "$workspace_dir"
 
 image="dsh-docker-smoke:${$}"
 container="dsh-docker-smoke-${$}"
-password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+password="dsh8pass"
 
 cleanup() {
   unset password

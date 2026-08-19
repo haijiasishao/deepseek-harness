@@ -63,7 +63,7 @@ require(dockerfile, r"ENTRYPOINT \[\"/usr/bin/tini\", \"--\"", "tini must superv
 
 require(entrypoint, r"^set -Eeuo pipefail$", "the entrypoint must use strict shell error handling", re.MULTILINE)
 require(entrypoint, r"\^\[A-Za-z0-9\._-\]\+\$", "WEB_USERNAME must use the required character allow-list")
-require(entrypoint, r"\$\{#password\}\s*<\s*16", "WEB_PASSWORD must have a 16-character minimum")
+require(entrypoint, r"\$\{#password\}\s*<\s*8", "WEB_PASSWORD must have an 8-character minimum")
 require(entrypoint, r"htpasswd\s+-B\s+-C\s+12\s+-i\s+-c", "htpasswd must use bcrypt cost 12 and read stdin")
 forbid(entrypoint, r"htpasswd[^\n]*\s-b(?:\s|$)", "htpasswd must not receive a password with -b")
 require(entrypoint, r"unset WEB_PASSWORD", "WEB_PASSWORD must be unset before child processes start")

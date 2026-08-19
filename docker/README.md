@@ -22,7 +22,7 @@ The build uses Node `22-bookworm-slim`, Corepack with pnpm `11.7.0`, `pnpm insta
 
 ## Run
 
-Create an environment file outside version control. `WEB_USERNAME` may contain only letters, digits, `.`, `_`, and `-`; `WEB_PASSWORD` must contain at least 16 characters.
+Create an environment file outside version control. `WEB_USERNAME` may contain only letters, digits, `.`, `_`, and `-`; `WEB_PASSWORD` must contain at least 8 characters.
 
 The entrypoint hashes the password and removes it from child-process environments, but Docker still records the container's initial environment. Anyone with Docker administrative access can inspect it, so use a dedicated credential and restrict Docker access.
 
