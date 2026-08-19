@@ -48,8 +48,13 @@ password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 cleanup() {
   unset password
   docker rm --force "$container" >/dev/null 2>&1 || true
+  if docker image inspect "$image" >/dev/null 2>&1; then
+    docker run --rm --user 0:0 --entrypoint sh \
+      --volume "$test_root:/cleanup" \
+      "$image" -c 'rm -rf /cleanup/* /cleanup/.[!.]* /cleanup/..?*' >/dev/null 2>&1 || true
+  fi
   docker image rm "$image" >/dev/null 2>&1 || true
-  rm -rf "$test_root"
+  rm -rf "$test_root" || true
 }
 trap cleanup EXIT
 
@@ -101,6 +106,20 @@ expect_not_code() {
   [[ "$actual" != "$rejected" ]] || fail "did not expect HTTP ${rejected} from ${url}"
 }
 
+wait_for_code() {
+  local expected="$1"
+  local url="$2"
+  shift 2
+  local deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    if [[ "$(http_code "$url" "$@")" == "$expected" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  fail "timed out waiting for external HTTP ${expected} from ${url}"
+}
+
 container_http_code() {
   local url="$1"
   docker exec "$container" curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 5 "$url" 2>/dev/null || true
@@ -144,7 +163,7 @@ expect_not_code 403 "$base_url/api/docker-smoke-nonexistent" \
 docker exec "$container" sh -c 'printf %s persistent-workspace > /workspace/.dsh-smoke-marker && printf %s persistent-home > /home/dsh/.dsh-smoke-marker'
 docker restart "$container" >/dev/null
 wait_for_internal_code 200 http://127.0.0.1:8080/healthz
-expect_code 403 "$base_url/healthz"
+wait_for_code 403 "$base_url/healthz"
 expect_code 200 "$base_url/" --netrc-file "$netrc"
 [[ "$(docker exec "$container" cat /workspace/.dsh-smoke-marker)" == 'persistent-workspace' ]] || fail 'the workspace volume did not persist'
 [[ "$(docker exec "$container" cat /home/dsh/.dsh-smoke-marker)" == 'persistent-home' ]] || fail 'the home volume did not persist'
