@@ -22,6 +22,12 @@ fi
 
 fail() {
   printf 'docker smoke test failed: %s\n' "$1" >&2
+  if [[ -n ${container:-} ]] && docker inspect "$container" >/dev/null 2>&1; then
+    printf '%s\n' '--- container state ---' >&2
+    docker inspect --format '{{json .State}}' "$container" >&2 || true
+    printf '%s\n' '--- container logs (last 200 lines) ---' >&2
+    docker logs --tail 200 "$container" >&2 || true
+  fi
   exit 1
 }
 
