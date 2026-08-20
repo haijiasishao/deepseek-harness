@@ -11,13 +11,6 @@ concurrency:
 
 permissions:
   contents: read
-  # Upstream commits being mirrored can add or modify .github/workflows/*
-  # files. GITHUB_TOKEN cannot push a ref that changes a workflow file
-  # without the `workflows` scope. NOTE: `workflows` is only accepted at the
-  # workflow level (not per-job), so it applies to every job here. Only the
-  # sync job pushes to master; build-and-smoke / publish use the token solely
-  # to push GHCR packages (packages: write), so no extra exposure in practice.
-  workflows: write
 
 jobs:
   sync:
@@ -25,7 +18,13 @@ jobs:
     name: Fast-forward official master mirror
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
+    env:
+      # GITHUB_TOKEN cannot push refs that add or modify .github/workflows/*
+      # files (the `workflows` permission is not usable for this in a fork
+      # mirror), so the fast-forward push authenticates with the SYNC_PUSH_TOKEN
+      # secret (fine-grained PAT, contents:write on this repository only).
+      SYNC_PUSH_TOKEN: ${{ secrets.SYNC_PUSH_TOKEN }}
     outputs:
       master_sha: ${{ steps.sync.outputs.master_sha }}
       master_short_sha: ${{ steps.sync.outputs.master_short_sha }}
@@ -35,7 +34,8 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
-          persist-credentials: true
+          # The mirror push must not inherit the GITHUB_TOKEN extraheader.
+          persist-credentials: false
 
       - name: Add official upstream
         run: git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
@@ -49,6 +49,9 @@ jobs:
         run: |
           set -Eeuo pipefail
 
+          test -n "${SYNC_PUSH_TOKEN}" \
+            || { printf '%s\n' 'SYNC_PUSH_TOKEN secret is not set; cannot push the mirror.' >&2; exit 1; }
+
           origin_master=$(git rev-parse refs/remotes/origin/master)
           upstream_master=$(git rev-parse refs/remotes/upstream/master)
           if ! git merge-base --is-ancestor "$origin_master" "$upstream_master"; then
@@ -58,7 +61,10 @@ jobs:
 
           # No force option is permitted: a concurrent origin/master update must
           # make this push fail instead of overwriting the newer branch.
-          git push origin "refs/remotes/upstream/master:refs/heads/master"
+          # The secret value is masked by the runner because it is referenced
+          # through the env var set from secrets context.
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: Bearer ${SYNC_PUSH_TOKEN}" \
+            push origin "refs/remotes/upstream/master:refs/heads/master"
 
           printf 'master_sha=%s\n' "$upstream_master" >> "$GITHUB_OUTPUT"
           printf 'master_short_sha=%s\n' "${upstream_master:0:7}" >> "$GITHUB_OUTPUT"
