@@ -19,6 +19,11 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      # The mirrored upstream commit may add or modify .github/workflows/*
+      # files; GITHUB_TOKEN cannot push workflow-file changes without the
+      # workflows scope. Only this job pushes to master, so the elevated
+      # permission is scoped to it alone.
+      workflows: write
     outputs:
       master_sha: ${{ steps.sync.outputs.master_sha }}
       master_short_sha: ${{ steps.sync.outputs.master_short_sha }}
