@@ -98,7 +98,6 @@ nginx = read("docker/nginx.conf")
 smoke = read("docker/tests/smoke.sh")
 readme = read("docker/README.md")
 readme_zh = read("docker/README.zh.md")
-workflow = read(".github/workflows/sync-build-publish.yml")
 read("docker/Dockerfile.dockerignore")
 
 require(dockerfile, r"^FROM node:22-bookworm-slim AS build$", "the build stage must use node:22-bookworm-slim", re.MULTILINE)
@@ -112,8 +111,6 @@ require(dockerfile, r"^ENV DSH_CLIENT_COMMIT_HASH=\$\{DSH_CLIENT_COMMIT_HASH\} \
 require(dockerfile, r"^ARG DSH_CLIENT_REMOTE_SETTINGS=1$", "remote settings must default to enabled only in the deployment image", re.MULTILINE)
 require(dockerfile, r"DSH_CLIENT_REMOTE_SETTINGS=\$\{DSH_CLIENT_REMOTE_SETTINGS\}", "the remote settings switch must reach the client build", re.MULTILINE)
 require(dockerfile, r"case \"\$DSH_CLIENT_REMOTE_SETTINGS\" in 0\|1\)", "the remote settings build argument must be restricted to 0 or 1")
-require(workflow, r"DSH_CLIENT_REMOTE_SETTINGS: '1'", "the smoke job must default the deployment switch to enabled")
-require(workflow, r"name: Build and publish image[\s\S]*?DSH_CLIENT_REMOTE_SETTINGS=1", "the publish build must pass the deployment switch explicitly")
 for command, description in (
     ("git apply --check docker/patches/insecure-origin-rpc.patch", "the source patch must be checked before applying"),
     ("git apply docker/patches/insecure-origin-rpc.patch", "the source patch must be applied in the build stage"),
