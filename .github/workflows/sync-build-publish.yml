@@ -61,10 +61,13 @@ jobs:
 
           # No force option is permitted: a concurrent origin/master update must
           # make this push fail instead of overwriting the newer branch.
-          # The secret value is masked by the runner because it is referenced
-          # through the env var set from secrets context.
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: Bearer ${SYNC_PUSH_TOKEN}" \
+          # GitHub Git smart HTTP accepts the PAT through a short-lived
+          # Basic header using the conventional x-access-token username.
+          # Keep the encoded value out of the repository and persistent config.
+          auth_header=$(printf 'x-access-token:%s' "$SYNC_PUSH_TOKEN" | base64 -w0)
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: Basic ${auth_header}" \
             push origin "refs/remotes/upstream/master:refs/heads/master"
+          unset auth_header
 
           printf 'master_sha=%s\n' "$upstream_master" >> "$GITHUB_OUTPUT"
           printf 'master_short_sha=%s\n' "${upstream_master:0:7}" >> "$GITHUB_OUTPUT"
