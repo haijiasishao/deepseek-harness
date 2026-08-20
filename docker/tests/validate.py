@@ -48,6 +48,8 @@ require(dockerfile, r"corepack prepare pnpm@11\.7\.0 --activate", "Corepack must
 require(dockerfile, r'test "\$\(pnpm --version\)" = "11\.7\.0"', "the image must verify the pnpm version")
 require(dockerfile, r"pnpm install --frozen-lockfile", "the build must use the lockfile immutably")
 require(dockerfile, r"pnpm run build", "the official source must be built")
+require(dockerfile, r"^ARG DSH_CLIENT_COMMIT_HASH$", "the build must accept the source commit as a build argument", re.MULTILINE)
+require(dockerfile, r"^ENV DSH_CLIENT_COMMIT_HASH=\$\{DSH_CLIENT_COMMIT_HASH\}$", "the build must expose the source commit to the client build", re.MULTILINE)
 for command, description in (
     ("git apply --check docker/patches/insecure-origin-rpc.patch", "the source patch must be checked before applying"),
     ("git apply docker/patches/insecure-origin-rpc.patch", "the source patch must be applied in the build stage"),
@@ -151,6 +153,7 @@ forbid(nginx, r"^\s*listen\s+[^;]*\b3080\b", "nginx must not listen on the Harne
 
 require(smoke, r"^set -Eeuo pipefail$", "the smoke test must use strict shell error handling", re.MULTILINE)
 require(smoke, r"--env-file", "the smoke test must pass credentials through an env file")
+require(smoke, r"--build-arg[^\n]*DSH_CLIENT_COMMIT_HASH", "the smoke test must pass the source commit into Docker build")
 require(smoke, r"expect_code 401", "the smoke test must check unauthenticated rejection")
 require(smoke, r"wrong_netrc", "the smoke test must check an incorrect password")
 require(smoke, r"expect_code 200", "the smoke test must check successful responses")

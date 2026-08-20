@@ -4,6 +4,11 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /build
 
+# The rc.8 client build embeds this value; Dockerfile.dockerignore excludes
+# .git, so callers must provide the exact source revision explicitly.
+ARG DSH_CLIENT_COMMIT_HASH
+ENV DSH_CLIENT_COMMIT_HASH=${DSH_CLIENT_COMMIT_HASH}
+
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         build-essential \

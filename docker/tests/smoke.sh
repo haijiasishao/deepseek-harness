@@ -44,6 +44,13 @@ chmod 0777 "$home_dir" "$workspace_dir"
 image="dsh-docker-smoke:${$}"
 container="dsh-docker-smoke-${$}"
 password="dsh8pass"
+build_commit_hash="${DSH_CLIENT_COMMIT_HASH:-${MASTER_SHA:-}}"
+if [[ -z "$build_commit_hash" && -d "$REPO_DIR/.git" ]]; then
+  build_commit_hash="$(git -C "$REPO_DIR" rev-parse HEAD)"
+fi
+if [[ ! "$build_commit_hash" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+  fail 'the Docker build requires a valid DSH_CLIENT_COMMIT_HASH or MASTER_SHA'
+fi
 
 cleanup() {
   unset password
@@ -63,7 +70,10 @@ printf 'machine 127.0.0.1 login dsh password %s\n' "$password" > "$netrc"
 printf '%s\n' 'machine 127.0.0.1 login dsh password definitely-wrong-password' > "$wrong_netrc"
 chmod 600 "$env_file" "$netrc" "$wrong_netrc"
 
-docker build --platform linux/amd64 --file "$REPO_DIR/docker/Dockerfile" --tag "$image" "$REPO_DIR" >/dev/null
+docker build --platform linux/amd64 \
+  --build-arg "DSH_CLIENT_COMMIT_HASH=$build_commit_hash" \
+  --file "$REPO_DIR/docker/Dockerfile" \
+  --tag "$image" "$REPO_DIR" >/dev/null
 docker run --detach \
   --name "$container" \
   --platform linux/amd64 \

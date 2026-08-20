@@ -172,6 +172,8 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/deepseek-harness:latest
             ghcr.io/${{ github.repository_owner }}/deepseek-harness:master-${{ needs.sync.outputs.master_short_sha }}
+          build-args: |
+            DSH_CLIENT_COMMIT_HASH=${{ needs.sync.outputs.master_sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.sync.outputs.master_sha }}
