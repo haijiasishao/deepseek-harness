@@ -30,3 +30,27 @@ index 0000000000..7dfaecfa52
 +  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 +  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 +}
+diff --git a/packages/client/ui-settings/src/client/index.ts b/packages/client/ui-settings/src/client/index.ts
+--- a/packages/client/ui-settings/src/client/index.ts
++++ b/packages/client/ui-settings/src/client/index.ts
+@@ -50,7 +50,7 @@ export function apply(ctx: ClientContext): void {
+   const schema = new SettingsSchemaService(ctx)
+   const connection = ctx.get('connection') as ConnectionHandle
+   const mirror = new SettingsDescribeMirror(
+     connection.api,
+-    connection.isLoopback ? 'host' : 'memory',
++    connection.isLoopback || process.env.DSH_CLIENT_REMOTE_SETTINGS === '1' ? 'host' : 'memory',
+   )
+   ctx.effect(() => {
+diff --git a/packages/client/ui-settings/src/client/settings-scope.ts b/packages/client/ui-settings/src/client/settings-scope.ts
+--- a/packages/client/ui-settings/src/client/settings-scope.ts
++++ b/packages/client/ui-settings/src/client/settings-scope.ts
+@@ -278,7 +278,7 @@ export class SettingsScopeBinder extends Service {
+     const controller = new SettingsScopeController<T>(
+       connection.api,
+       spec,
+       this.mirror,
+-      connection.isLoopback ? 'host' : 'memory',
++      connection.isLoopback || process.env.DSH_CLIENT_REMOTE_SETTINGS === '1' ? 'host' : 'memory',
+       this.schema,
+     )

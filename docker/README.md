@@ -15,12 +15,20 @@ Scheduled synchronization and image publication run from the `deploy` branch. Se
 Run the build from the repository root so the Dockerfile can use the workspace lockfile and all package sources.
 
 ```sh
-docker build --file docker/Dockerfile --tag deepseek-harness:local .
+docker build \
+  --build-arg "DSH_CLIENT_COMMIT_HASH=$(git rev-parse HEAD)" \
+  --build-arg DSH_CLIENT_REMOTE_SETTINGS=1 \
+  --file docker/Dockerfile \
+  --tag deepseek-harness:local .
 ```
 
 The build uses Node `22-bookworm-slim`, Corepack with pnpm `11.7.0`, `pnpm install --frozen-lockfile`, and `pnpm run build`.
 
 The deployment overlay applies its checked-in source patch before the image build.
+
+The deployment image sets `DSH_CLIENT_REMOTE_SETTINGS=1`, so an authenticated remote browser can use Host-backed settings through the existing nginx Basic Auth. The official source keeps non-loopback clients on process-local memory by default.
+
+To build locally with the official non-loopback memory behavior, pass `--build-arg DSH_CLIENT_REMOTE_SETTINGS=0` instead. This is a build-time client setting; it does not change the server's API trust rules.
 
 ## Run
 

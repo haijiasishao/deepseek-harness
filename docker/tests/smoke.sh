@@ -51,6 +51,10 @@ fi
 if [[ ! "$build_commit_hash" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
   fail 'the Docker build requires a valid DSH_CLIENT_COMMIT_HASH or MASTER_SHA'
 fi
+remote_settings="${DSH_CLIENT_REMOTE_SETTINGS:-1}"
+if [[ ! "$remote_settings" =~ ^[01]$ ]]; then
+  fail 'DSH_CLIENT_REMOTE_SETTINGS must be 0 or 1'
+fi
 
 cleanup() {
   unset password
@@ -72,6 +76,7 @@ chmod 600 "$env_file" "$netrc" "$wrong_netrc"
 
 docker build --platform linux/amd64 \
   --build-arg "DSH_CLIENT_COMMIT_HASH=$build_commit_hash" \
+  --build-arg "DSH_CLIENT_REMOTE_SETTINGS=$remote_settings" \
   --file "$REPO_DIR/docker/Dockerfile" \
   --tag "$image" "$REPO_DIR" >/dev/null
 docker run --detach \

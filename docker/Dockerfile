@@ -7,7 +7,11 @@ WORKDIR /build
 # The rc.8 client build embeds this value; Dockerfile.dockerignore excludes
 # .git, so callers must provide the exact source revision explicitly.
 ARG DSH_CLIENT_COMMIT_HASH
-ENV DSH_CLIENT_COMMIT_HASH=${DSH_CLIENT_COMMIT_HASH}
+ARG DSH_CLIENT_REMOTE_SETTINGS=1
+ENV DSH_CLIENT_COMMIT_HASH=${DSH_CLIENT_COMMIT_HASH} \
+    DSH_CLIENT_REMOTE_SETTINGS=${DSH_CLIENT_REMOTE_SETTINGS}
+
+RUN case "$DSH_CLIENT_REMOTE_SETTINGS" in 0|1) ;; *) echo 'DSH_CLIENT_REMOTE_SETTINGS must be 0 or 1' >&2; exit 1 ;; esac
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \

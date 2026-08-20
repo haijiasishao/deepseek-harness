@@ -15,12 +15,20 @@
 从仓库根目录运行构建，使 Dockerfile 可以使用工作区锁文件和所有包源码。
 
 ```sh
-docker build --file docker/Dockerfile --tag deepseek-harness:local .
+docker build \
+  --build-arg "DSH_CLIENT_COMMIT_HASH=$(git rev-parse HEAD)" \
+  --build-arg DSH_CLIENT_REMOTE_SETTINGS=1 \
+  --file docker/Dockerfile \
+  --tag deepseek-harness:local .
 ```
 
 构建使用 Node `22-bookworm-slim`、Corepack、pnpm `11.7.0`、`pnpm install --frozen-lockfile` 和 `pnpm run build`。
 
 部署覆盖层会在镜像构建前应用其纳入版本控制的源码补丁。
+
+部署镜像将 `DSH_CLIENT_REMOTE_SETTINGS=1` 注入客户端构建，因此通过现有 Nginx Basic Auth 认证的远程浏览器可以使用 Host 持久化设置。官方源码默认让非环回客户端使用进程内 memory。
+
+如需在本地构建中保持官方的非环回 memory 行为，可改为传入 `--build-arg DSH_CLIENT_REMOTE_SETTINGS=0`。这是构建期客户端开关，不会改变服务器的 API 信任规则。
 
 ## 运行
 

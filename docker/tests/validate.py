@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import re
+import os
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -33,6 +36,61 @@ def forbid(text: str, pattern: str, description: str, flags: int = 0) -> None:
         fail(description)
 
 
+def source_ref() -> str:
+    """Choose the official source tree used to check the deployment patch."""
+    candidates = []
+    configured = os.environ.get("DSH_UPSTREAM_SOURCE_REF")
+    if configured:
+        candidates.append(configured)
+    candidates.extend(("refs/remotes/upstream/master", "HEAD"))
+    for candidate in candidates:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f"{candidate}^{{commit}}"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return candidate
+    fail("no Git source ref is available for the deployment patch check")
+    raise AssertionError("unreachable")
+
+
+def check_source_patch(patch_files: list[str]) -> None:
+    """Apply the overlay to the selected source revision and inspect its result."""
+    with tempfile.TemporaryDirectory(prefix="dsh-deploy-source-") as source_dir:
+        archive = subprocess.run(
+            ["git", "archive", "--format=tar", source_ref()],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+        subprocess.run(["tar", "-xf", "-", "-C", source_dir], input=archive, check=True)
+        patch_path = ROOT / "docker/patches/insecure-origin-rpc.patch"
+        check = subprocess.run(
+            ["git", "apply", "--check", str(patch_path)],
+            cwd=source_dir,
+            capture_output=True,
+            text=True,
+        )
+        if check.returncode != 0:
+            fail(f"the source patch does not apply: {check.stderr.strip()}")
+        subprocess.run(["git", "apply", str(patch_path)], cwd=source_dir, check=True)
+
+        expected = "connection.isLoopback || process.env.DSH_CLIENT_REMOTE_SETTINGS === '1' ? 'host' : 'memory'"
+        for relative in (
+            "packages/client/ui-settings/src/client/index.ts",
+            "packages/client/ui-settings/src/client/settings-scope.ts",
+        ):
+            text = (Path(source_dir) / relative).read_text(encoding="utf-8")
+            if text.count(expected) != 1:
+                fail(f"{relative} must select host only for loopback or the explicit remote opt-in")
+        models = (Path(source_dir) / "packages/client/ui-settings-models/src/client/index.ts").read_text(encoding="utf-8")
+        require(models, r"ctx\.settingsScope\.describe\(\)", "Models reads must use the shared settings describe face")
+        require(models, r"ctx\.settingsScope\.bind\(", "Models welcome writes must use the shared settings scope")
+        forbid(models, r"connection\.isLoopback", "Models must not add a separate loopback persistence branch")
+
+
 dockerfile = read("docker/Dockerfile")
 patch = read("docker/patches/insecure-origin-rpc.patch")
 entrypoint = read("docker/entrypoint.sh")
@@ -40,6 +98,7 @@ nginx = read("docker/nginx.conf")
 smoke = read("docker/tests/smoke.sh")
 readme = read("docker/README.md")
 readme_zh = read("docker/README.zh.md")
+workflow = read(".github/workflows/sync-build-publish.yml")
 read("docker/Dockerfile.dockerignore")
 
 require(dockerfile, r"^FROM node:22-bookworm-slim AS build$", "the build stage must use node:22-bookworm-slim", re.MULTILINE)
@@ -49,7 +108,12 @@ require(dockerfile, r'test "\$\(pnpm --version\)" = "11\.7\.0"', "the image must
 require(dockerfile, r"pnpm install --frozen-lockfile", "the build must use the lockfile immutably")
 require(dockerfile, r"pnpm run build", "the official source must be built")
 require(dockerfile, r"^ARG DSH_CLIENT_COMMIT_HASH$", "the build must accept the source commit as a build argument", re.MULTILINE)
-require(dockerfile, r"^ENV DSH_CLIENT_COMMIT_HASH=\$\{DSH_CLIENT_COMMIT_HASH\}$", "the build must expose the source commit to the client build", re.MULTILINE)
+require(dockerfile, r"^ENV DSH_CLIENT_COMMIT_HASH=\$\{DSH_CLIENT_COMMIT_HASH\} \\\n\s+DSH_CLIENT_REMOTE_SETTINGS=\$\{DSH_CLIENT_REMOTE_SETTINGS\}$", "the build must expose client build values", re.MULTILINE)
+require(dockerfile, r"^ARG DSH_CLIENT_REMOTE_SETTINGS=1$", "remote settings must default to enabled only in the deployment image", re.MULTILINE)
+require(dockerfile, r"DSH_CLIENT_REMOTE_SETTINGS=\$\{DSH_CLIENT_REMOTE_SETTINGS\}", "the remote settings switch must reach the client build", re.MULTILINE)
+require(dockerfile, r"case \"\$DSH_CLIENT_REMOTE_SETTINGS\" in 0\|1\)", "the remote settings build argument must be restricted to 0 or 1")
+require(workflow, r"DSH_CLIENT_REMOTE_SETTINGS: '1'", "the smoke job must default the deployment switch to enabled")
+require(workflow, r"name: Build and publish image[\s\S]*?DSH_CLIENT_REMOTE_SETTINGS=1", "the publish build must pass the deployment switch explicitly")
 for command, description in (
     ("git apply --check docker/patches/insecure-origin-rpc.patch", "the source patch must be checked before applying"),
     ("git apply docker/patches/insecure-origin-rpc.patch", "the source patch must be applied in the build stage"),
@@ -70,11 +134,14 @@ command_positions = [
 if command_positions != sorted(command_positions):
     fail("the source patch must be checked, applied, and removed before install and build")
 patch_files = re.findall(r"^diff --git a/(\S+) b/\S+$", patch, re.MULTILINE)
-if patch_files != [
+if sorted(patch_files) != sorted([
     "packages/host/apiproxy/src/fetch/client.ts",
     "packages/host/apiproxy/src/fetch/random-uuid.ts",
-]:
-    fail("the source patch must contain only the two production fetch files")
+    "packages/client/ui-settings/src/client/index.ts",
+    "packages/client/ui-settings/src/client/settings-scope.ts",
+]):
+    fail("the source patch must contain only the settings overlay and fetch compatibility files")
+check_source_patch(patch_files)
 patch_added_lines = "\n".join(
     line[1:]
     for line in patch.splitlines()
@@ -154,6 +221,8 @@ forbid(nginx, r"^\s*listen\s+[^;]*\b3080\b", "nginx must not listen on the Harne
 require(smoke, r"^set -Eeuo pipefail$", "the smoke test must use strict shell error handling", re.MULTILINE)
 require(smoke, r"--env-file", "the smoke test must pass credentials through an env file")
 require(smoke, r"--build-arg[^\n]*DSH_CLIENT_COMMIT_HASH", "the smoke test must pass the source commit into Docker build")
+require(smoke, r"--build-arg[^\n]*DSH_CLIENT_REMOTE_SETTINGS", "the smoke test must pass the remote settings switch into Docker build")
+require(smoke, r"DSH_CLIENT_REMOTE_SETTINGS:-1", "the smoke test must default the remote settings switch to enabled")
 require(smoke, r"expect_code 401", "the smoke test must check unauthenticated rejection")
 require(smoke, r"wrong_netrc", "the smoke test must check an incorrect password")
 require(smoke, r"expect_code 200", "the smoke test must check successful responses")
@@ -183,10 +252,13 @@ for phrase in (
     "deploy",
     "official",
     "fixed 90-second",
+    "dsh_client_remote_settings=1",
+    "dsh_client_remote_settings=0",
+    "memory",
 ):
     if phrase not in readme_lower:
         fail(f"the README must document {phrase}")
-for phrase in ("--env-file", "/home/dsh", "/workspace", "401", "200", "403", "docker exec", "90", "deploy"):
+for phrase in ("--env-file", "/home/dsh", "/workspace", "401", "200", "403", "docker exec", "90", "deploy", "dsh_client_remote_settings=1", "dsh_client_remote_settings=0", "memory"):
     if phrase not in readme_zh_lower:
         fail(f"the Chinese README must document {phrase}")
 if "HARNESS_READY_TIMEOUT_SECONDS" in readme_zh:
