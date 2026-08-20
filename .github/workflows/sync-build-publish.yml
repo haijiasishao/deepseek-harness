@@ -11,6 +11,13 @@ concurrency:
 
 permissions:
   contents: read
+  # Upstream commits being mirrored can add or modify .github/workflows/*
+  # files. GITHUB_TOKEN cannot push a ref that changes a workflow file
+  # without the `workflows` scope. NOTE: `workflows` is only accepted at the
+  # workflow level (not per-job), so it applies to every job here. Only the
+  # sync job pushes to master; build-and-smoke / publish use the token solely
+  # to push GHCR packages (packages: write), so no extra exposure in practice.
+  workflows: write
 
 jobs:
   sync:
@@ -19,11 +26,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-      # The mirrored upstream commit may add or modify .github/workflows/*
-      # files; GITHUB_TOKEN cannot push workflow-file changes without the
-      # workflows scope. Only this job pushes to master, so the elevated
-      # permission is scoped to it alone.
-      workflows: write
     outputs:
       master_sha: ${{ steps.sync.outputs.master_sha }}
       master_short_sha: ${{ steps.sync.outputs.master_short_sha }}
