@@ -74,12 +74,15 @@ printf 'machine 127.0.0.1 login dsh password %s\n' "$password" > "$netrc"
 printf '%s\n' 'machine 127.0.0.1 login dsh password definitely-wrong-password' > "$wrong_netrc"
 chmod 600 "$env_file" "$netrc" "$wrong_netrc"
 
-docker build --platform linux/amd64 \
+printf '%s\n' 'smoke: docker build started'
+timeout --foreground 600s docker build --platform linux/amd64 \
   --build-arg "DSH_CLIENT_COMMIT_HASH=$build_commit_hash" \
   --build-arg "DSH_CLIENT_REMOTE_SETTINGS=$remote_settings" \
   --file "$REPO_DIR/docker/Dockerfile" \
   --tag "$image" "$REPO_DIR" >/dev/null
-docker run --detach \
+printf '%s\n' 'smoke: docker build completed'
+printf '%s\n' 'smoke: docker run started'
+timeout --foreground 30s docker run --detach \
   --name "$container" \
   --platform linux/amd64 \
   --env-file "$env_file" \
@@ -87,6 +90,7 @@ docker run --detach \
   --volume "$home_dir:/home/dsh" \
   --volume "$workspace_dir:/workspace" \
   "$image" >/dev/null
+printf '%s\n' 'smoke: docker run completed'
 
 ports="$(docker inspect --format '{{json .NetworkSettings.Ports}}' "$container")"
 if [[ "$ports" == *3080* ]]; then
