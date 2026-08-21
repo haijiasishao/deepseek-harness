@@ -87,6 +87,7 @@ RUN install -d -o dsh -g dsh -m 0700 \
 
 ENV HOME=/home/dsh \
     DSH_HOME=/home/dsh \
+    PNPM_CONFIG_CONFIRM_MODULES_PURGE=false \
     PATH=/opt/dsh/node_modules/.bin:/opt/dsh/apps/cli/node_modules/.bin:${PATH}
 
 WORKDIR /workspace
