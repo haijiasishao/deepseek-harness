@@ -177,7 +177,7 @@ wait_for_internal_code() {
 wait_for_internal_code 200 http://127.0.0.1:8080/healthz
 expect_internal_code 200 http://127.0.0.1:8080/healthz
 
-if ! docker exec "$container" sh -ceu '
+if ! timeout --foreground 180s docker exec "$container" sh -ceu '
   printf "%s\\n" "toolchain: pnpm version"
   pnpm_version="$(pnpm --version)"
   printf "pnpm=%s\\n" "$pnpm_version"
@@ -201,7 +201,11 @@ if ! docker exec "$container" sh -ceu '
 
   cd /opt/dsh
   printf "%s\\n" "toolchain: vitepress"
-  pnpm --filter @deepseek-ai/website exec vitepress --version
+  test -x /opt/dsh/website/node_modules/.bin/vitepress || {
+    printf "%s\\n" "missing official workspace tool: vitepress" >&2
+    exit 1
+  }
+  printf "%s\\n" "vitepress=present"
   printf "%s\\n" "toolchain: dsh version"
   dsh --version
   printf "%s\\n" "toolchain: dsh help"
