@@ -241,7 +241,7 @@ for tool in ("dsh", "pnpm", "node", "npm", "npx", "corepack", "git", "bash", "py
 for tool in ("tsx", "tsc", "tsdown", "vitest", "oxlint", "jscpd", "knip", "vitepress"):
     require(smoke, re.escape(tool), f"the smoke test must check official workspace tool {tool}")
 require(smoke, r"dsh --version", "the smoke test must check the official dsh CLI")
-require(smoke, r"dsh plugin --profile smoke list --depth 0", "the smoke test must check the official plugin command")
+require(smoke, r"dsh plugin --profile smoke --version", "the smoke test must check the official plugin command and pnpm forwarding")
 require(smoke, r"expect_not_code 403[\s\S]*?/api/docker-smoke-nonexistent", "the smoke test must exercise the API trust fence through an external Host and Origin")
 require(smoke, r"docker restart", "the smoke test must check persistence across restart")
 require(smoke, r"/home/dsh", "the smoke test must mount the Harness home")

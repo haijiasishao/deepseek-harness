@@ -203,7 +203,9 @@ if ! docker exec "$container" sh -ceu '
   printf "%s\\n" "toolchain: dsh help"
   dsh --help >/dev/null
   printf "%s\\n" "toolchain: dsh plugin -> pnpm"
-  dsh plugin --profile smoke list --depth 0
+  plugin_pnpm_version="$(dsh plugin --profile smoke --version)"
+  printf "dsh-plugin-pnpm=%s\\n" "$plugin_pnpm_version"
+  test "$plugin_pnpm_version" = "11.7.0"
 '; then
   fail 'the official runtime command/toolchain check failed'
 fi
