@@ -8,7 +8,7 @@ The entrypoint uses a fixed 90-second readiness deadline.
 
 ## Deployment automation
 
-Scheduled synchronization and image publication run from the `deploy` branch. Set `deploy` as the repository default branch because GitHub runs scheduled workflows from the default branch. The workflow fast-forwards `master` to the official upstream `master`, so `master` is a pure official mirror. Docker files come from `deploy`, while the image source is the exact synchronized `master` commit.
+Scheduled synchronization runs from the `deploy` branch and only fast-forwards the official `master` mirror; it does not build or publish an image. Set `deploy` as the repository default branch because GitHub runs scheduled workflows from the default branch. To build, smoke-test, and publish an image, explicitly start the workflow with `workflow_dispatch`. Docker files come from `deploy`, while the image source is the exact synchronized `master` commit.
 
 ## Build
 

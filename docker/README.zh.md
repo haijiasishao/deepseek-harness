@@ -8,7 +8,7 @@
 
 ## 部署自动化
 
-定时同步和镜像发布从 `deploy` 分支运行。请将 `deploy` 设置为仓库默认分支，因为 GitHub 从默认分支运行定时工作流。该工作流将 `master` 快进到官方 upstream 的 `master`，因此 `master` 是官方内容的纯镜像。Docker 文件来自 `deploy`，镜像源码则是同步后的精确 `master` 提交。
+定时同步从 `deploy` 分支运行，且只将官方 upstream 的 `master` 快进同步到本仓库，不自动构建或发布镜像。请将 `deploy` 设置为仓库默认分支，因为 GitHub 从默认分支运行定时工作流。需要构建、smoke 测试和发布镜像时，必须显式手动执行 `workflow_dispatch`。Docker 文件来自 `deploy`，镜像源码则是同步后的精确 `master` 提交。
 
 ## 构建
 

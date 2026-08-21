@@ -1,6 +1,8 @@
-name: Sync, build, and publish Docker
+name: Sync official master; manually build and publish Docker
 
 on:
+  # Scheduled runs only update the official master mirror. Docker build and
+  # publication require an explicit workflow_dispatch invocation below.
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
@@ -73,7 +75,7 @@ jobs:
           printf 'master_short_sha=%s\n' "${upstream_master:0:7}" >> "$GITHUB_OUTPUT"
 
   build-and-smoke:
-    if: github.ref_name == 'deploy'
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'deploy'
     name: Build and smoke-test linux/amd64
     needs: sync
     runs-on: ubuntu-24.04
@@ -116,7 +118,7 @@ jobs:
         run: bash docker/tests/smoke.sh
 
   publish:
-    if: github.ref_name == 'deploy'
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'deploy'
     name: Publish multi-architecture image
     needs: [sync, build-and-smoke]
     runs-on: ubuntu-24.04
