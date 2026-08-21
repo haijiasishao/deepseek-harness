@@ -30,6 +30,12 @@ docker build \
 
 如需在本地构建中保持官方的非环回 memory 行为，可改为传入 `--build-arg DSH_CLIENT_REMOTE_SETTINGS=0`。这是构建期客户端开关，不会改变服务器的 API 信任规则。
 
+## 官方命令工具链
+
+最终镜像保留官方项目在 Linux 环境下使用的命令工具链，而不只是在构建阶段提供：Node.js 及其 `npm`/`npx`、Corepack 和 pnpm `11.7.0`、`dsh` CLI、Git、Bash、Python 3、curl、ripgrep、SSH 客户端、zip/unzip，以及 `make`、`gcc`、`g++` 原生构建工具。工作区中的 `tsx`、`tsc`、`tsdown`、`vitest`、`oxlint`、`jscpd`、`knip` 和 VitePress 工具也保留在 `/opt/dsh` 下。
+
+这支持 `dsh web`、profile 启动和配置导出、`dsh plugin --profile ... add/remove/update/why`，以及官方 `pnpm run` 构建、类型检查、测试、Lint 和验证命令；外部插件在安装自身依赖后也可以在容器内构建。Windows/Wine 专用门禁不属于 Linux 运行时契约。外部插件源码及其开发依赖不会预置到镜像中，应在挂载的 `/home/dsh` 插件目录内安装，或直接使用带完整构建产物的 Release 包。
+
 ## 运行
 
 在版本控制之外创建环境文件。`WEB_USERNAME` 只能包含字母、数字、`.`、`_` 和 `-`；`WEB_PASSWORD` 至少需要 8 个字符。

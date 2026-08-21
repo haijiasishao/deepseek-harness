@@ -40,21 +40,39 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         apache2-utils \
         bash \
+        build-essential \
         ca-certificates \
         curl \
         git \
         nginx \
+        openssh-client \
         procps \
         python3 \
         ripgrep \
         tini \
+        unzip \
+        zip \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 dsh \
     && useradd --system --uid 10001 --gid dsh --create-home --home-dir /home/dsh --shell /usr/sbin/nologin dsh
 
-COPY --from=build /build /opt/dsh
+# Keep the official Linux CLI and plugin-management toolchain available in the
+# final image, not only in the build stage. `dsh plugin` forwards to pnpm.
+ENV COREPACK_HOME=/opt/corepack
+RUN corepack enable \
+    && install -d -o dsh -g dsh -m 0755 "$COREPACK_HOME" \
+    && corepack prepare pnpm@11.7.0 --activate \
+    && test "$(pnpm --version)" = "11.7.0"
+
+COPY --chown=dsh:dsh --from=build /build /opt/dsh
 COPY docker/entrypoint.sh /usr/local/bin/dsh-entrypoint
 COPY docker/nginx.conf /etc/nginx/nginx.conf
+
+RUN printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'exec node /opt/dsh/apps/cli/lib/bin.js "$@"' \
+        > /usr/local/bin/dsh \
+    && chmod 0555 /usr/local/bin/dsh
 
 RUN install -d -o dsh -g dsh -m 0700 \
         /home/dsh \

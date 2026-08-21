@@ -30,6 +30,12 @@ The deployment image sets `DSH_CLIENT_REMOTE_SETTINGS=1`, so an authenticated re
 
 To build locally with the official non-loopback memory behavior, pass `--build-arg DSH_CLIENT_REMOTE_SETTINGS=0` instead. This is a build-time client setting; it does not change the server's API trust rules.
 
+## Official command toolchain
+
+The final image retains the Linux-compatible toolchain used by the official project, not only the build stage: Node.js with `npm`/`npx`, Corepack with pnpm `11.7.0`, the `dsh` CLI, Git, Bash, Python 3, curl, ripgrep, SSH client, zip/unzip, and the native build tools `make`, `gcc`, and `g++`. The workspace's `tsx`, `tsc`, `tsdown`, `vitest`, `oxlint`, `jscpd`, `knip`, and VitePress tools are also retained under `/opt/dsh`.
+
+This supports `dsh web`, profile boot and config dumps, `dsh plugin --profile ... add/remove/update/why`, the official `pnpm run` build/typecheck/test/lint/verification commands, and building external plugins after their own dependencies are installed. The Windows/Wine-only gate is not part of the Linux runtime contract. External plugin source and development dependencies are not vendored into the image; install them in the mounted `/home/dsh` plugin directory or use a prebuilt release package.
+
 ## Run
 
 Create an environment file outside version control. `WEB_USERNAME` may contain only letters, digits, `.`, `_`, and `-`; `WEB_PASSWORD` must contain at least 8 characters.

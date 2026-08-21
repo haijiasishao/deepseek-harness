@@ -103,9 +103,14 @@ read("docker/Dockerfile.dockerignore")
 require(dockerfile, r"^FROM node:22-bookworm-slim AS build$", "the build stage must use node:22-bookworm-slim", re.MULTILINE)
 require(dockerfile, r"^FROM node:22-bookworm-slim AS runtime$", "the runtime stage must use node:22-bookworm-slim", re.MULTILINE)
 require(dockerfile, r"corepack prepare pnpm@11\.7\.0 --activate", "Corepack must activate pnpm 11.7.0")
+if dockerfile.count("corepack prepare pnpm@11.7.0 --activate") < 2:
+    fail("the final runtime stage must activate pnpm, not only the build stage")
 require(dockerfile, r'test "\$\(pnpm --version\)" = "11\.7\.0"', "the image must verify the pnpm version")
 require(dockerfile, r"pnpm install --frozen-lockfile", "the build must use the lockfile immutably")
 require(dockerfile, r"pnpm run build", "the official source must be built")
+require(dockerfile, r"COPY --chown=dsh:dsh --from=build /build /opt/dsh", "the built source tree must be writable by the runtime user for official maintenance commands")
+require(dockerfile, r"^ENV COREPACK_HOME=/opt/corepack$", "Corepack must use a runtime-readable cache directory", re.MULTILINE)
+require(dockerfile, r"/usr/local/bin/dsh", "the final image must expose the official dsh CLI command")
 require(dockerfile, r"^ARG DSH_CLIENT_COMMIT_HASH$", "the build must accept the source commit as a build argument", re.MULTILINE)
 require(dockerfile, r"^ENV DSH_CLIENT_COMMIT_HASH=\$\{DSH_CLIENT_COMMIT_HASH\} \\\n\s+DSH_CLIENT_REMOTE_SETTINGS=\$\{DSH_CLIENT_REMOTE_SETTINGS\}$", "the build must expose client build values", re.MULTILINE)
 require(dockerfile, r"^ARG DSH_CLIENT_REMOTE_SETTINGS=1$", "remote settings must default to enabled only in the deployment image", re.MULTILINE)
@@ -147,7 +152,10 @@ patch_added_lines = "\n".join(
 require(patch_added_lines, r"\brandomUuid\b", "the source patch must use randomUuid")
 require(patch_added_lines, r"\bgetRandomValues\b", "the source patch must use getRandomValues")
 forbid(patch_added_lines, r"crypto\.randomUUID", "the source patch must not add crypto.randomUUID")
-for package in ("nginx", "tini", "curl", "apache2-utils", "bash", "ca-certificates", "procps"):
+for package in (
+    "nginx", "tini", "curl", "apache2-utils", "bash", "ca-certificates", "procps",
+    "build-essential", "openssh-client", "python3", "ripgrep", "unzip", "zip",
+):
     require(dockerfile, rf"\b{re.escape(package)}\b", f"{package} must be installed in the image")
 require(dockerfile, r"^WORKDIR /workspace$", "the runtime work directory must be /workspace", re.MULTILINE)
 require(dockerfile, r"^USER dsh$", "the runtime must use the non-root dsh user", re.MULTILINE)
@@ -226,6 +234,12 @@ require(smoke, r"expect_code 200", "the smoke test must check successful respons
 require(smoke, r"expect_code 403\s+\"\$base_url/healthz\"", "the smoke test must reject external /healthz")
 require(smoke, r"expect_internal_code 200", "the smoke test must check internal /healthz")
 require(smoke, r"docker exec[^\n]*curl", "the smoke test must use docker exec for internal health")
+for tool in ("dsh", "pnpm", "node", "npm", "npx", "corepack", "git", "bash", "python3", "curl", "rg", "ssh", "unzip", "zip", "make", "gcc", "g++"):
+    require(smoke, re.escape(tool), f"the smoke test must check runtime command {tool}")
+for tool in ("tsx", "tsc", "tsdown", "vitest", "oxlint", "jscpd", "knip", "vitepress"):
+    require(smoke, re.escape(tool), f"the smoke test must check official workspace tool {tool}")
+require(smoke, r"dsh --version", "the smoke test must check the official dsh CLI")
+require(smoke, r"dsh plugin --profile smoke list --depth 0", "the smoke test must check the official plugin command")
 require(smoke, r"expect_not_code 403[\s\S]*?/api/docker-smoke-nonexistent", "the smoke test must exercise the API trust fence through an external Host and Origin")
 require(smoke, r"docker restart", "the smoke test must check persistence across restart")
 require(smoke, r"/home/dsh", "the smoke test must mount the Harness home")

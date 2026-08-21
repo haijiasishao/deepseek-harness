@@ -172,6 +172,27 @@ wait_for_internal_code() {
 
 wait_for_internal_code 200 http://127.0.0.1:8080/healthz
 expect_internal_code 200 http://127.0.0.1:8080/healthz
+
+docker exec "$container" sh -ceu '
+  test "$(pnpm --version)" = "11.7.0"
+  for tool in dsh node npm npx corepack git bash python3 curl rg ssh unzip zip make gcc g++; do
+    command -v "$tool" >/dev/null 2>&1 || {
+      printf "missing runtime command: %s\\n" "$tool" >&2
+      exit 1
+    }
+  done
+  for tool in tsx tsc tsdown vitest oxlint jscpd knip; do
+    command -v "$tool" >/dev/null 2>&1 || {
+      printf "missing official workspace tool: %s\\n" "$tool" >&2
+      exit 1
+    }
+  done
+  cd /opt/dsh
+  pnpm --filter @deepseek-ai/website exec vitepress --version >/dev/null
+  dsh --version >/dev/null
+  dsh --help >/dev/null
+  dsh plugin --profile smoke list --depth 0 >/dev/null
+'
 expect_code 401 "$base_url/"
 expect_code 401 "$base_url/" --netrc-file "$wrong_netrc"
 expect_code 200 "$base_url/" --netrc-file "$netrc"
