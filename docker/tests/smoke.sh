@@ -174,24 +174,36 @@ wait_for_internal_code 200 http://127.0.0.1:8080/healthz
 expect_internal_code 200 http://127.0.0.1:8080/healthz
 
 if ! docker exec "$container" sh -ceu '
-  test "$(pnpm --version)" = "11.7.0"
+  printf "%s\\n" "toolchain: pnpm version"
+  pnpm_version="$(pnpm --version)"
+  printf "pnpm=%s\\n" "$pnpm_version"
+  test "$pnpm_version" = "11.7.0"
+
   for tool in dsh node npm npx corepack git bash python3 curl rg ssh unzip zip make gcc g++; do
+    printf "toolchain: command %s\\n" "$tool"
     command -v "$tool" >/dev/null 2>&1 || {
       printf "missing runtime command: %s\\n" "$tool" >&2
       exit 1
     }
   done
+
   for tool in tsx tsc tsdown vitest oxlint jscpd knip; do
+    printf "toolchain: workspace tool %s\\n" "$tool"
     command -v "$tool" >/dev/null 2>&1 || {
       printf "missing official workspace tool: %s\\n" "$tool" >&2
       exit 1
     }
   done
+
   cd /opt/dsh
-  pnpm --filter @deepseek-ai/website exec vitepress --version >/dev/null
-  dsh --version >/dev/null
+  printf "%s\\n" "toolchain: vitepress"
+  pnpm --filter @deepseek-ai/website exec vitepress --version
+  printf "%s\\n" "toolchain: dsh version"
+  dsh --version
+  printf "%s\\n" "toolchain: dsh help"
   dsh --help >/dev/null
-  dsh plugin --profile smoke list --depth 0 >/dev/null
+  printf "%s\\n" "toolchain: dsh plugin -> pnpm"
+  dsh plugin --profile smoke list --depth 0
 '; then
   fail 'the official runtime command/toolchain check failed'
 fi
