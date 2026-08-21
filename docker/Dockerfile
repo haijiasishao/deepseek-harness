@@ -64,6 +64,9 @@ RUN corepack enable \
     && corepack prepare pnpm@11.7.0 --activate \
     && test "$(pnpm --version)" = "11.7.0"
 
+RUN printf '%s\n' 'confirmModulesPurge=false' > /opt/dsh-pnpmrc \
+    && chmod 0444 /opt/dsh-pnpmrc
+
 COPY --chown=dsh:dsh --from=build /build /opt/dsh
 COPY docker/entrypoint.sh /usr/local/bin/dsh-entrypoint
 COPY docker/nginx.conf /etc/nginx/nginx.conf
@@ -87,8 +90,7 @@ RUN install -d -o dsh -g dsh -m 0700 \
 
 ENV HOME=/home/dsh \
     DSH_HOME=/home/dsh \
-    NPM_CONFIG_CONFIRM_MODULES_PURGE=false \
-    PNPM_CONFIG_CONFIRM_MODULES_PURGE=false \
+    NPM_CONFIG_USERCONFIG=/opt/dsh-pnpmrc \
     PATH=/opt/dsh/node_modules/.bin:/opt/dsh/apps/cli/node_modules/.bin:${PATH}
 
 WORKDIR /workspace
