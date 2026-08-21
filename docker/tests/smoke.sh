@@ -178,9 +178,6 @@ if ! docker exec "$container" sh -ceu '
   pnpm_version="$(pnpm --version)"
   printf "pnpm=%s\\n" "$pnpm_version"
   test "$pnpm_version" = "11.7.0"
-  purge_policy="$(pnpm config get confirmModulesPurge)"
-  printf "pnpm.confirmModulesPurge=%s\\n" "$purge_policy"
-  test "$purge_policy" = "false"
 
   for tool in dsh node npm npx corepack git bash python3 curl rg ssh unzip zip make gcc g++; do
     printf "toolchain: command %s\\n" "$tool"

@@ -34,6 +34,8 @@ To build locally with the official non-loopback memory behavior, pass `--build-a
 
 The final image retains the Linux-compatible toolchain used by the official project, not only the build stage: Node.js with `npm`/`npx`, Corepack with pnpm `11.7.0`, the `dsh` CLI, Git, Bash, Python 3, curl, ripgrep, SSH client, zip/unzip, and the native build tools `make`, `gcc`, and `g++`. The workspace's `tsx`, `tsc`, `tsdown`, `vitest`, `oxlint`, `jscpd`, `knip`, and VitePress tools are also retained under `/opt/dsh`.
 
+The image's `pnpm` and `pnpx` wrappers default only their child package-manager process to `CI=true`, so profile maintenance works without a TTY; set `CI=false` explicitly when an interactive pnpm confirmation is required.
+
 This supports `dsh web`, profile boot and config dumps, `dsh plugin --profile ... add/remove/update/why`, the official `pnpm run` build/typecheck/test/lint/verification commands, and building external plugins after their own dependencies are installed. The Windows/Wine-only gate is not part of the Linux runtime contract. External plugin source and development dependencies are not vendored into the image; install them in the mounted `/home/dsh` plugin directory or use a prebuilt release package.
 
 ## Run

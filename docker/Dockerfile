@@ -64,12 +64,20 @@ RUN corepack enable \
     && corepack prepare pnpm@11.7.0 --activate \
     && test "$(pnpm --version)" = "11.7.0"
 
-RUN printf '%s\n' 'confirmModulesPurge=false' > /opt/dsh-pnpmrc \
-    && chmod 0444 /opt/dsh-pnpmrc
-
 COPY --chown=dsh:dsh --from=build /build /opt/dsh
 COPY docker/entrypoint.sh /usr/local/bin/dsh-entrypoint
 COPY docker/nginx.conf /etc/nginx/nginx.conf
+
+RUN rm -f /usr/local/bin/pnpm /usr/local/bin/pnpx \
+    && printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'exec env "CI=${CI:-true}" /usr/local/bin/corepack pnpm "$@"' \
+        > /usr/local/bin/pnpm \
+    && printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'exec env "CI=${CI:-true}" /usr/local/bin/corepack pnpx "$@"' \
+        > /usr/local/bin/pnpx \
+    && chmod 0555 /usr/local/bin/pnpm /usr/local/bin/pnpx
 
 RUN printf '%s\n' \
         '#!/usr/bin/env bash' \
@@ -90,7 +98,6 @@ RUN install -d -o dsh -g dsh -m 0700 \
 
 ENV HOME=/home/dsh \
     DSH_HOME=/home/dsh \
-    NPM_CONFIG_USERCONFIG=/opt/dsh-pnpmrc \
     PATH=/opt/dsh/node_modules/.bin:/opt/dsh/apps/cli/node_modules/.bin:${PATH}
 
 WORKDIR /workspace
